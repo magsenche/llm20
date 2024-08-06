@@ -1,0 +1,22 @@
+[project]
+name = "llm20"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "Magsen Chebini", email = "magsen.che@gmail.com"},
+]
+dependencies = [
+    "kaggle>=1.6.17",
+    "ipykernel>=6.29.5",
+    "torch>=2.4.0",
+    "transformers>=4.44.0",
+    "ollama>=0.3.1",
+    "kaggle-environments>=1.14.15",
+]
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
