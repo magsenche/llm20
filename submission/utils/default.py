@@ -22,9 +22,9 @@ questions = [
     "Is the keyword considered a luxury item?",
 ]
 guesses = [
-    "lime",
+    "tomato",
     "internet",
-    "smartphone",
+    "sunscreen",
     "spaceship",
     "car seat",
     "bacon",

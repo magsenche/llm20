@@ -99,20 +99,21 @@ class Agent:
 
 class Questioner(Agent):
     max_new_token: int = 128
-    temperature: int = 0.6
 
     def __init__(self, turn_types: str = ["ask", "guess"]) -> None:
         super().__init__(turn_types=turn_types, sys_prompt=prompt.questioner)
 
     def config_state(self, obs):
         self.reset_state()
-        self.update_state("user", "Let's play ! Ask the first question (1/20).")
+        self.update_state("user", "Let's play !")
         for q, a in itertools.zip_longest(obs.questions, obs.answers):
             self.update_state("assistant", q)
             self.update_state("user", a)
 
 
 class Asker(Questioner):
+    temperature: int = 0.6
+
     def __init__(self) -> None:
         super().__init__(turn_types=["ask"])
         self.questions = default.questions
@@ -130,7 +131,11 @@ class Asker(Questioner):
     def config_state(self, obs):
         super().config_state(obs)
         i = len(obs.questions) + 1
-        self.update_state("user", prompt.ask.format(i=i))
+        if obs.answers[-3:] == 3 * ["no"]:
+            ask_prompt = prompt.ask_3no.format(i=i)
+        else:
+            ask_prompt = prompt.ask.format(i=i)
+        self.update_state("user", ask_prompt)
 
     def check(self, response: str) -> str:
         matched = re.match(r".*\?$", response)
@@ -138,6 +143,8 @@ class Asker(Questioner):
 
 
 class Guesser(Questioner):
+    temperature: int = 0.5
+
     def __init__(self) -> None:
         super().__init__(turn_types=["guess"])
         self.guesses = default.guesses
@@ -148,16 +155,21 @@ class Guesser(Questioner):
     def result(self, obs, cfg) -> str:
         start_time = time.time()
         while time.time() - start_time < 0.8 * cfg.actTimeout:
-            res = super().result(obs, cfg).lower()
-            if res not in obs.guesses:
+            res = super().result(obs, cfg).lower().strip()
+            if res not in obs.guesses and res.count(" ") < 3:
                 return res
+            else:
+                self.temperature = min(0.9, self.temperature + 0.05)
         return self.next_guess()
+
+    def reset_state(self):
+        super().reset_state()
+        self.temperature = Guesser.temperature
 
     def config_state(self, obs):
         super().config_state(obs)
         i = len(obs.guesses) + 1
-        guesses = ",".join([f"**{g}**" for g in obs.guesses])
-        self.update_state("user", prompt.guess.format(i=i, guesses=guesses))
+        self.update_state("user", prompt.guess.format(i=i, guesses=obs.guesses))
 
     def check(self, response: str) -> str:
         res = re.findall(r"\*{2,}(.*?)\*{2,}", response.replace("\n", ""))
@@ -166,7 +178,7 @@ class Guesser(Questioner):
 
 class Answerer(Agent):
     max_new_token: int = 16
-    temperature: int = 0.2
+    temperature: int = 0.1
 
     def __init__(self) -> None:
         super().__init__(turn_types=["answer"], sys_prompt=prompt.answerer)
