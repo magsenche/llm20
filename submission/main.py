@@ -131,7 +131,9 @@ class Asker(Questioner):
     def config_state(self, obs):
         super().config_state(obs)
         i = len(obs.questions) + 1
-        if obs.answers[-3:] == 3 * ["no"]:
+        if obs.answers[-5:].count("no") == 5:
+            ask_prompt = prompt.ask_5no.format(i=i)
+        elif obs.answers[-3:].count("no") == 3:
             ask_prompt = prompt.ask_3no.format(i=i)
         else:
             ask_prompt = prompt.ask.format(i=i)
@@ -155,11 +157,12 @@ class Guesser(Questioner):
     def result(self, obs, cfg) -> str:
         start_time = time.time()
         while time.time() - start_time < 0.8 * cfg.actTimeout:
-            res = super().result(obs, cfg).lower().strip()
-            if res not in obs.guesses and res.count(" ") < 3:
-                return res
-            else:
-                self.temperature = min(0.9, self.temperature + 0.05)
+            results = super().result(obs, cfg).split("|")
+            for res in results:
+                res = re.sub(r"^(a|an|the)\s+", "", res.lower().strip())
+                if res not in obs.guesses and res.count(" ") < 3:
+                    return res
+            self.temperature = min(0.2, self.temperature + 0.05)
         return self.next_guess()
 
     def reset_state(self):
@@ -172,8 +175,9 @@ class Guesser(Questioner):
         self.update_state("user", prompt.guess.format(i=i, guesses=obs.guesses))
 
     def check(self, response: str) -> str:
-        res = re.findall(r"\*{2,}(.*?)\*{2,}", response.replace("\n", ""))
-        return res[-1] if res else self.next_guess()
+        guesses = re.findall(r"\*{2}(.*?)\*{2}", response.replace("\n", ""))
+        res = "|".join(guesses)
+        return res if res else self.next_guess()
 
 
 class Answerer(Agent):
@@ -197,7 +201,6 @@ class Answerer(Agent):
 
 
 def agent_fn(obs, cfg):
-
     match obs.turnType:
         case "ask":
             return Asker()(obs, cfg)
