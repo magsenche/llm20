@@ -6,7 +6,7 @@ initial = (
 )
 
 questioner = initial + (
-    "The keyword you need to guess is an object. "
+    "The keyword you need to guess is {initial_clues}. "
     "Your task is to ask yes-or-no questions to gather clues about what it could be. "
     "The game continues until you either correctly guess the keyword or run out of questions. "
     "Be strategic, think critically, and ask questions that help you narrow down the possibilities. Let's see how quickly you can uncover the mystery word!"
@@ -19,7 +19,7 @@ ask = (
     "Now ask the next question ({i}/20). Here are some tips you should keep in mind:\n"
     "- Start with general questions and then move to specific ones.\n"
     "- Be strategic: aim to divide the possibilities roughly in half with each question to maximize efficiency and do not ask a question if you are quite sure of the answer."
-    "- Focus on gathering information, not guessing the keyword directly.\n"
+    "- Focus on gathering information, you shoud not guess the keyword directly.\n"
     "- Reflect on previous answers to avoid repetition and redundant questions.\n"
     "- Use contrasting pairs (e.g., 'Is it big?' vs. 'Is it small?') and don’t be afraid to throw in a disjunction (Is it used for transportation OR healthcare) to eliminate multiple possibilities at once.\n"
     "- Refrain from using phrases like 'such as' or providing examples within your questions, as they can introduce ambiguity in the responses.\n"

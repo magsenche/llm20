@@ -76,25 +76,21 @@ class Agent:
         else:
             raise KeyError
 
-    def result(self, obs, cfg) -> str:
-        response = call_model(self.state, self.max_new_token, self.temperature)
-        res = self.check(response)
-        return res
-
     def config_state(self, obs):
         raise NotImplementedError
-
-    def check(self, response: str) -> str:
-        raise NotImplementedError
-
-    def reset_state(self) -> None:
-        self.state = []
-        self.update_state("system", self.sys_prompt)
 
     def update_state(self, role: str, content: str | None) -> None:
         if content is not None and len(content) > 0:
             message = format_message(role, content)
             self.state.append(message)
+
+    def result(self, obs, cfg) -> str:
+        response = call_model(self.state, self.max_new_token, self.temperature)
+        res = self.check(response)
+        return res
+
+    def check(self, response: str) -> str:
+        raise NotImplementedError
 
 
 class Questioner(Agent):
@@ -104,11 +100,20 @@ class Questioner(Agent):
         super().__init__(turn_types=turn_types, sys_prompt=prompt.questioner)
 
     def config_state(self, obs):
-        self.reset_state()
+        self.reset_state(obs)
         self.update_state("user", "Let's play !")
         for q, a in itertools.zip_longest(obs.questions, obs.answers):
             self.update_state("assistant", q)
             self.update_state("user", a)
+
+    def reset_state(self, obs) -> None:
+        self.state = []
+        clues = [
+            default.first_questions[i][yn]
+            for i, yn in enumerate(obs.answers[: len(default.first_questions)])
+        ]
+        intial_clues = "a 'thing', " + ", ".join(clues)
+        self.update_state("system", self.sys_prompt.format(initial_clues=intial_clues))
 
 
 class Asker(Questioner):
@@ -117,16 +122,6 @@ class Asker(Questioner):
     def __init__(self) -> None:
         super().__init__(turn_types=["ask"])
         self.questions = default.questions
-
-    def next_question(self) -> str:
-        return self.questions.pop(0)
-
-    def result(self, obs, cfg) -> str:
-        if len(obs.questions) == 0:
-            res = self.next_question()
-        else:
-            res = super().result(obs, cfg)
-        return res
 
     def config_state(self, obs):
         super().config_state(obs)
@@ -139,9 +134,20 @@ class Asker(Questioner):
             ask_prompt = prompt.ask.format(i=i)
         self.update_state("user", ask_prompt)
 
+    def result(self, obs, cfg) -> str:
+        i = len(obs.questions)
+        if i < len(default.first_questions):
+            res = default.first_questions[i]["question"]
+        else:
+            res = super().result(obs, cfg)
+        return res
+
     def check(self, response: str) -> str:
         matched = re.match(r".*\?$", response)
         return response if matched else self.next_question()
+
+    def next_question(self) -> str:
+        return self.questions.pop(0)
 
 
 class Guesser(Questioner):
@@ -151,8 +157,14 @@ class Guesser(Questioner):
         super().__init__(turn_types=["guess"])
         self.guesses = default.guesses
 
-    def next_guess(self) -> str:
-        return self.guesses.pop(0)
+    def config_state(self, obs):
+        super().config_state(obs)
+        i = len(obs.guesses) + 1
+        self.update_state("user", prompt.guess.format(i=i, guesses=obs.guesses))
+
+    def reset_state(self, obs):
+        super().reset_state(obs)
+        self.temperature = Guesser.temperature
 
     def result(self, obs, cfg) -> str:
         start_time = time.time()
@@ -165,19 +177,13 @@ class Guesser(Questioner):
             self.temperature = min(0.2, self.temperature + 0.05)
         return self.next_guess()
 
-    def reset_state(self):
-        super().reset_state()
-        self.temperature = Guesser.temperature
-
-    def config_state(self, obs):
-        super().config_state(obs)
-        i = len(obs.guesses) + 1
-        self.update_state("user", prompt.guess.format(i=i, guesses=obs.guesses))
-
     def check(self, response: str) -> str:
         guesses = re.findall(r"\*{2}(.*?)\*{2}", response.replace("\n", ""))
         res = "|".join(guesses)
         return res if res else self.next_guess()
+
+    def next_guess(self) -> str:
+        return self.guesses.pop(0)
 
 
 class Answerer(Agent):
@@ -188,13 +194,17 @@ class Answerer(Agent):
         super().__init__(turn_types=["answer"], sys_prompt=prompt.answerer)
 
     def config_state(self, obs):
-        self.reset_state()
+        self.reset_state(obs)
         self.update_state(
             "user",
             prompt.answer.format(
                 keyword=obs.keyword, category=obs.category, question=obs.questions[-1]
             ),
         )
+
+    def reset_state(self, obs) -> None:
+        self.state = []
+        self.update_state("system", self.sys_prompt)
 
     def check(self, response: str) -> str:
         return "yes" if "yes" in response.lower() else "no"

@@ -1,5 +1,5 @@
 questions = [
-    "Is the keyword man-made?",
+    "Is the keyword related to nature or a natural phenomenon ?",
     "Is the keyword alive?",
     "Is it something you can find in a bathroom?",
     "Does the keyword have any moving parts?",
@@ -42,4 +42,17 @@ guesses = [
     "lint roller",
     "edible flowers",
     "pearl",
+]
+
+first_questions = [
+    {
+        "question": "Is the keyword man-made?",
+        "yes": "man-made",
+        "no": "not man-made",
+    },
+    {
+        "question": "Is the keyword something that can be held in your hand?",
+        "yes": "hand holdable",
+        "no": "not hand holdable",
+    },
 ]
