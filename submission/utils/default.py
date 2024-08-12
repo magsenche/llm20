@@ -42,6 +42,7 @@ guesses = [
     "lint roller",
     "edible flowers",
     "pearl",
+    "wingsuit",
 ]
 
 first_questions = [

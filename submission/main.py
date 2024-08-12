@@ -1,5 +1,6 @@
 import itertools
 import pathlib
+import random
 import re
 import time
 
@@ -15,6 +16,7 @@ def format_message(role: str, content: str) -> dict:
     return {"role": role, "content": content}
 
 
+NF = len(default.first_questions)
 KAGGLE_AGENT = pathlib.Path("/kaggle_simulations/agent")
 
 if KAGGLE_AGENT.exists():
@@ -62,19 +64,18 @@ class Agent:
 
     def __init__(
         self,
-        turn_types: list[str] = [],
         sys_prompt: str = "You are an AI agent",
     ) -> None:
-        self.turn_types = turn_types
         self.sys_prompt = sys_prompt
         self.state = []
+        self.default = ["default res"]
 
     def __call__(self, obs, cfg) -> str:
-        if obs.turnType in self.turn_types:
+        try:
             self.config_state(obs)
             return self.result(obs, cfg)
-        else:
-            raise KeyError
+        except:
+            return self.default_res()
 
     def config_state(self, obs):
         raise NotImplementedError
@@ -92,12 +93,15 @@ class Agent:
     def check(self, response: str) -> str:
         raise NotImplementedError
 
+    def default_res(self) -> str:
+        return random.choice(self.default)
+
 
 class Questioner(Agent):
     max_new_token: int = 128
 
-    def __init__(self, turn_types: str = ["ask", "guess"]) -> None:
-        super().__init__(turn_types=turn_types, sys_prompt=prompt.questioner)
+    def __init__(self) -> None:
+        super().__init__(sys_prompt=prompt.questioner)
 
     def config_state(self, obs):
         self.reset_state(obs)
@@ -109,8 +113,7 @@ class Questioner(Agent):
     def reset_state(self, obs) -> None:
         self.state = []
         clues = [
-            default.first_questions[i][yn]
-            for i, yn in enumerate(obs.answers[: len(default.first_questions)])
+            default.first_questions[i][yn] for i, yn in enumerate(obs.answers[:NF])
         ]
         intial_clues = "a 'thing', " + ", ".join(clues)
         self.update_state("system", self.sys_prompt.format(initial_clues=intial_clues))
@@ -120,8 +123,8 @@ class Asker(Questioner):
     temperature: int = 0.6
 
     def __init__(self) -> None:
-        super().__init__(turn_types=["ask"])
-        self.questions = default.questions
+        super().__init__()
+        self.default = default.questions
 
     def config_state(self, obs):
         super().config_state(obs)
@@ -136,7 +139,7 @@ class Asker(Questioner):
 
     def result(self, obs, cfg) -> str:
         i = len(obs.questions)
-        if i < len(default.first_questions):
+        if i < NF:
             res = default.first_questions[i]["question"]
         else:
             res = super().result(obs, cfg)
@@ -144,18 +147,15 @@ class Asker(Questioner):
 
     def check(self, response: str) -> str:
         matched = re.match(r".*\?$", response)
-        return response if matched else self.next_question()
-
-    def next_question(self) -> str:
-        return self.questions.pop(0)
+        return response if matched else self.default_res()
 
 
 class Guesser(Questioner):
     temperature: int = 0.6
 
     def __init__(self) -> None:
-        super().__init__(turn_types=["guess"])
-        self.guesses = default.guesses
+        super().__init__()
+        self.default = default.guesses
 
     def config_state(self, obs):
         super().config_state(obs)
@@ -175,15 +175,14 @@ class Guesser(Questioner):
                 if res not in obs.guesses and res.count(" ") < 3:
                     return res
             self.temperature = min(0.2, self.temperature + 0.05)
-        return self.next_guess()
+        return self.default_res()
 
     def check(self, response: str) -> str:
-        guesses = re.findall(r"\*{2}(.*?)\*{2}", response.replace("\n", ""))
+        guesses = re.findall(
+            r"\*{2}([^\*\s].*?[^\*\s])\*{2}", response.replace("\n", "")
+        )
         res = "|".join(guesses)
-        return res if res else self.next_guess()
-
-    def next_guess(self) -> str:
-        return self.guesses.pop(0)
+        return res if res else self.default_res()
 
 
 class Answerer(Agent):
@@ -191,7 +190,8 @@ class Answerer(Agent):
     temperature: int = 0.2
 
     def __init__(self) -> None:
-        super().__init__(turn_types=["answer"], sys_prompt=prompt.answerer)
+        super().__init__(sys_prompt=prompt.answerer)
+        self.default = ["yes", "no"]
 
     def config_state(self, obs):
         self.reset_state(obs)
@@ -207,7 +207,7 @@ class Answerer(Agent):
         self.update_state("system", self.sys_prompt)
 
     def check(self, response: str) -> str:
-        return "yes" if "yes" in response.lower() else "no"
+        return "yes" if "yes" in response.lower() else self.default_res()
 
 
 def agent_fn(obs, cfg):
