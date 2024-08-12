@@ -43,5 +43,5 @@ guess = (
     "Make 3 different guesses that you want to test. "
     "Surround your guesses by double asterisks (**) without any additional explanation at the end. "
     "Remember, you're providing three educated guesses, not asking more questions.\n"
-    "EXAMPLES OF ANSWER: **tomato** or **red pepper** or **chilli pepper**"
+    "EXAMPLES OF ANSWER: The keyword is not man-made, food. It's color is red. **tomato** or **red pepper** or **chilli pepper**"
 )

@@ -151,7 +151,7 @@ class Asker(Questioner):
 
 
 class Guesser(Questioner):
-    temperature: int = 0.5
+    temperature: int = 0.6
 
     def __init__(self) -> None:
         super().__init__(turn_types=["guess"])
@@ -188,7 +188,7 @@ class Guesser(Questioner):
 
 class Answerer(Agent):
     max_new_token: int = 16
-    temperature: int = 0.1
+    temperature: int = 0.2
 
     def __init__(self) -> None:
         super().__init__(turn_types=["answer"], sys_prompt=prompt.answerer)
