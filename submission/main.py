@@ -106,9 +106,12 @@ class Questioner(Agent):
     def config_state(self, obs):
         self.reset_state(obs)
         self.update_state("user", "Let's play !")
-        for q, a in itertools.zip_longest(obs.questions, obs.answers):
+        for q, a, g in itertools.zip_longest(obs.questions, obs.answers, obs.guesses):
             self.update_state("assistant", q)
             self.update_state("user", a)
+            self.update_state("assistant", g)
+            if g is not None:
+                self.update_state("user", "no")
 
     def reset_state(self, obs) -> None:
         self.state = []
@@ -151,7 +154,7 @@ class Asker(Questioner):
 
 
 class Guesser(Questioner):
-    temperature: int = 0.6
+    temperature: int = 0.5
 
     def __init__(self) -> None:
         super().__init__()
@@ -187,7 +190,7 @@ class Guesser(Questioner):
 
 class Answerer(Agent):
     max_new_token: int = 16
-    temperature: int = 0.2
+    temperature: int = 0.1
 
     def __init__(self) -> None:
         super().__init__(sys_prompt=prompt.answerer)
